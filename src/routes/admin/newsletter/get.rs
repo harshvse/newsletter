@@ -3,7 +3,7 @@ use crate::{
     utils::{e500, see_other},
 };
 use actix_web::{HttpResponse, http::header::ContentType};
-use actix_web_flash_messages::{IncomingFlashMessages, Level};
+use actix_web_flash_messages::IncomingFlashMessages;
 use std::fmt::Write;
 
 pub async fn newsletter_publish_form(
@@ -11,13 +11,15 @@ pub async fn newsletter_publish_form(
     flash_messages: IncomingFlashMessages,
 ) -> Result<HttpResponse, actix_web::Error> {
     let mut error_string = String::new();
-    for m in flash_messages.iter().filter(|m| m.level() == Level::Error) {
+    for m in flash_messages.iter() {
         writeln!(error_string, "<p><i>{}</i></p>", m.content()).unwrap()
     }
 
     if session.get_user_id().map_err(e500)?.is_none() {
         return Ok(see_other("/login"));
     };
+    let idempotency_key = uuid::Uuid::new_v4();
+
     Ok(HttpResponse::Ok()
         .content_type(ContentType::html())
         .body(format!(
@@ -53,6 +55,7 @@ name="text_content"
 >
 </textarea>
 <br>
+<input hidden type="text" name="idempotency_key" value="{idempotency_key}">
 <button type="submit">Publish Newsletter</button>
 </form>
 <p><a href="/admin/dashboard">&lt;- Back</a></p>

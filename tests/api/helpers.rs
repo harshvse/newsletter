@@ -6,6 +6,8 @@ use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
 use wiremock::MockServer;
 use wizard_blog_backend::configuration::{DatabaseSettings, get_configuration};
+use wizard_blog_backend::email_client::EmailClient;
+use wizard_blog_backend::issue_delivery_worker::{ExecutionOutcome, try_execute_task};
 use wizard_blog_backend::startup::{Application, get_connection_pool};
 use wizard_blog_backend::telemetry::{get_subscriber, init_subscriber};
 
@@ -29,6 +31,7 @@ pub struct TestApp {
     pub email_server: MockServer,
     pub api_client: reqwest::Client,
     pub test_user: TestUser,
+    pub email_client: EmailClient,
 }
 
 pub struct TestUser {
@@ -43,6 +46,17 @@ pub struct ConfirmationLinks {
 }
 
 impl TestApp {
+    pub async fn dispatch_all_pending_emails(&self) {
+        loop {
+            if let ExecutionOutcome::EmptyQueue =
+                try_execute_task(&self.db_pool, &self.email_client)
+                    .await
+                    .unwrap()
+            {
+                break;
+            }
+        }
+    }
     pub async fn post_subscriptions(&self, body: String) -> reqwest::Response {
         self.api_client
             .post(&format!("{}/subscriptions", &self.address))
@@ -53,7 +67,7 @@ impl TestApp {
             .expect("failed to execute request")
     }
 
-    pub async fn post_newsletter(&self, body: serde_json::Value) -> reqwest::Response {
+    pub async fn post_newsletter(&self, body: &serde_json::Value) -> reqwest::Response {
         self.api_client
             .post(&format!("{}/admin/newsletters", &self.address))
             .form(&body)
@@ -181,7 +195,6 @@ impl TestUser {
         .hash_password(self.password.as_bytes(), &salt)
         .unwrap()
         .to_string();
-
         sqlx::query!(
             r#"
             INSERT INTO users (user_id, username,password_hash)
@@ -194,6 +207,13 @@ impl TestUser {
         .execute(pool)
         .await
         .expect("Failed to create test user");
+    }
+    pub async fn login(&self, app: &TestApp) {
+        app.post_login(&serde_json::json!({
+            "username": &self.username,
+            "password": &self.password
+        }))
+        .await;
     }
 }
 
@@ -233,6 +253,7 @@ pub async fn spawn_app() -> TestApp {
         email_server,
         api_client: client,
         test_user: TestUser::generate(),
+        email_client: configuration.email_client.client(),
     };
 
     test_app.test_user.store(&test_app.db_pool).await;
