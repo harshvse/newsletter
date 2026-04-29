@@ -30,6 +30,7 @@ async fn main() -> anyhow::Result<()> {
     };
     Ok(())
 }
+
 fn report_exit(task_name: &str, outcome: Result<Result<(), impl Debug + Display>, JoinError>) {
     match outcome {
         Ok(Ok(())) => {
@@ -39,7 +40,7 @@ fn report_exit(task_name: &str, outcome: Result<Result<(), impl Debug + Display>
             tracing::error!(
             error.cause_chain = ?e,
             error.message = %e,
-            "{}failed",
+            "{} failed",
             task_name
             )
         }
