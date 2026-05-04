@@ -1,3 +1,4 @@
+use actix_cors::Cors;
 use actix_session::SessionMiddleware;
 use actix_session::storage::RedisSessionStore;
 use actix_web::cookie::Key;
@@ -77,7 +78,15 @@ pub async fn run(
     let message_framework = FlashMessagesFramework::builder(message_store).build();
 
     let server = HttpServer::new(move || {
+        let cors = Cors::default()
+            .allow_any_origin()
+            .allow_any_method()
+            .allow_any_header()
+            .supports_credentials()
+            .max_age(3600);
+
         App::new()
+            .wrap(cors)
             .wrap(message_framework.clone())
             .wrap(SessionMiddleware::new(
                 redis_store.clone(),
@@ -90,6 +99,20 @@ pub async fn run(
             .route("/login", web::get().to(login_form))
             .route("/login", web::post().to(login))
             .route("/", web::get().to(home))
+            .service(
+                web::scope("/api")
+                    .route("/auth/login", web::post().to(login))
+                    .route("/auth/logout", web::post().to(logout))
+                    .route("/auth/check", web::get().to(check_auth))
+                    .route("/posts", web::get().to(get_posts))
+                    .route("/posts", web::post().to(create_post))
+                    .route("/posts/{id}", web::get().to(get_post))
+                    .route("/posts/{id}", web::put().to(update_post))
+                    .route("/posts/{id}", web::delete().to(delete_post))
+                    .route("/categories", web::get().to(get_categories))
+                    .route("/categories", web::post().to(create_category))
+                    .route("/categories/{id}", web::delete().to(delete_category)),
+            )
             .service(
                 web::scope("/admin")
                     .wrap(from_fn(reject_anonymous_users))

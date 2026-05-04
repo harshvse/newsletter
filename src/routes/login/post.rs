@@ -1,13 +1,12 @@
-use actix_web::error::InternalError;
-use actix_web::{HttpResponse, http::header::LOCATION, web};
-use actix_web_flash_messages::FlashMessage;
+use actix_web::{HttpResponse, web};
 use secrecy::Secret;
+use serde::Serialize;
 use sqlx::PgPool;
 
 use crate::session_state::TypedSession;
 use crate::{
-    authentication::{AuthError, Credentials, validate_credentials},
-    utils::error_chain_fmt,
+    authentication::{Credentials, validate_credentials},
+    utils::e500,
 };
 
 #[derive(serde::Deserialize)]
@@ -16,20 +15,27 @@ pub struct FormData {
     password: Secret<String>,
 }
 
+#[derive(Debug, Serialize)]
+pub struct LoginResponse {
+    pub success: bool,
+    pub message: String,
+}
+
 #[tracing::instrument(
-skip(form, pool, session),
-fields(username=tracing::field::Empty, user_id=tracing::field::Empty)
+    name = "Login",
+    skip(form, pool, session),
+    fields(username = tracing::field::Empty, user_id = tracing::field::Empty)
 )]
 pub async fn login(
-    form: web::Form<FormData>,
+    form: web::Json<FormData>,
     pool: web::Data<PgPool>,
     session: TypedSession,
-) -> Result<HttpResponse, InternalError<LoginError>> {
+) -> Result<HttpResponse, actix_web::Error> {
     let credentials = Credentials {
-        username: form.0.username,
-        password: form.0.password,
+        username: form.username.clone(),
+        password: form.password.clone(),
     };
-    tracing::Span::current().record("user_id", tracing::field::display(&credentials.username));
+    tracing::Span::current().record("username", &tracing::field::display(&credentials.username));
 
     match validate_credentials(credentials, &pool).await {
         Ok(user_id) => {
@@ -37,38 +43,16 @@ pub async fn login(
             session.renew();
             session
                 .insert_user_id(user_id)
-                .map_err(|e| login_redirect(LoginError::UnexpectedError(e.into())))?;
-            Ok(HttpResponse::SeeOther()
-                .insert_header((LOCATION, "/admin/dashboard"))
-                .finish())
-        }
-        Err(e) => {
-            let e = match e {
-                AuthError::InvalidCredentials(_) => LoginError::AuthError(e.into()),
-                AuthError::UnexpectedError(_) => LoginError::UnexpectedError(e.into()),
-            };
-            Err(login_redirect(e.into()))
-        }
-    }
-}
+                .map_err(|e| e500(anyhow::anyhow!("Failed to set session: {}", e)))?;
 
-fn login_redirect(e: LoginError) -> InternalError<LoginError> {
-    FlashMessage::error(e.to_string()).send();
-    let response = HttpResponse::SeeOther()
-        .insert_header((LOCATION, "/login"))
-        .finish();
-    InternalError::from_response(e, response)
-}
-
-#[derive(thiserror::Error)]
-pub enum LoginError {
-    #[error("Authentication failed")]
-    AuthError(#[source] anyhow::Error),
-    #[error("Something went wrong")]
-    UnexpectedError(#[from] anyhow::Error),
-}
-impl std::fmt::Debug for LoginError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        error_chain_fmt(self, f)
+            Ok(HttpResponse::Ok().json(LoginResponse {
+                success: true,
+                message: "Login successful".to_string(),
+            }))
+        }
+        Err(_) => Ok(HttpResponse::Unauthorized().json(LoginResponse {
+            success: false,
+            message: "Invalid username or password".to_string(),
+        })),
     }
 }

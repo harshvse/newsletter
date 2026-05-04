@@ -174,6 +174,92 @@ impl TestApp {
             .await
             .expect("Failed to execute request.")
     }
+
+    // ─── Blog API Helpers ───
+
+    pub async fn get_posts(&self) -> reqwest::Response {
+        self.api_client
+            .get(&format!("{}/api/posts", &self.address))
+            .send()
+            .await
+            .expect("failed to execute request")
+    }
+
+    pub async fn get_posts_all(&self) -> reqwest::Response {
+        self.api_client
+            .get(&format!("{}/api/posts?status=all", &self.address))
+            .send()
+            .await
+            .expect("failed to execute request")
+    }
+
+    pub async fn get_post(&self, id: i32) -> reqwest::Response {
+        self.api_client
+            .get(&format!("{}/api/posts/{}", &self.address, id))
+            .send()
+            .await
+            .expect("failed to execute request")
+    }
+
+    pub async fn post_post<Body>(&self, body: &Body) -> reqwest::Response
+    where
+        Body: serde::Serialize,
+    {
+        self.api_client
+            .post(&format!("{}/api/posts", &self.address))
+            .json(body)
+            .send()
+            .await
+            .expect("failed to execute request")
+    }
+
+    pub async fn put_post<Body>(&self, id: i32, body: &Body) -> reqwest::Response
+    where
+        Body: serde::Serialize,
+    {
+        self.api_client
+            .put(&format!("{}/api/posts/{}", &self.address, id))
+            .json(body)
+            .send()
+            .await
+            .expect("failed to execute request")
+    }
+
+    pub async fn delete_post(&self, id: i32) -> reqwest::Response {
+        self.api_client
+            .delete(&format!("{}/api/posts/{}", &self.address, id))
+            .send()
+            .await
+            .expect("failed to execute request")
+    }
+
+    pub async fn get_categories(&self) -> reqwest::Response {
+        self.api_client
+            .get(&format!("{}/api/categories", &self.address))
+            .send()
+            .await
+            .expect("failed to execute request")
+    }
+
+    pub async fn post_category<Body>(&self, body: &Body) -> reqwest::Response
+    where
+        Body: serde::Serialize,
+    {
+        self.api_client
+            .post(&format!("{}/api/categories", &self.address))
+            .json(body)
+            .send()
+            .await
+            .expect("failed to execute request")
+    }
+
+    pub async fn delete_category(&self, id: i32) -> reqwest::Response {
+        self.api_client
+            .delete(&format!("{}/api/categories/{}", &self.address, id))
+            .send()
+            .await
+            .expect("failed to execute request")
+    }
 }
 
 impl TestUser {

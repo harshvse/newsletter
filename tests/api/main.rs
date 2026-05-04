@@ -1,3 +1,4 @@
+mod blog_api;
 mod change_password;
 mod dashboard;
 mod health_check;
