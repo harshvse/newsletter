@@ -3,7 +3,7 @@ application_port: 8000
 
 # The backend's own public URL (used to build links, e.g. email confirmation).
 # Replace with your Render service URL.
-base_url: "https://your-backend.onrender.com"
+base_url: "https://blog-xdq0.onrender.com"
 
 # Production secrets & env-specific values are supplied via environment
 # variables (see DEPLOYMENT.md), NOT committed here:
@@ -24,7 +24,7 @@ database:
 # Exact Vercel origin(s) allowed to call the API with credentials.
 # Replace with your real deployed frontend URL(s).
 frontend_origins:
-  - "https://your-frontend.vercel.app"
+  - "https://blog.harshvse.in"
 
 # Frontend (Vercel) and backend (Render) are on different HTTPS origins, so
 # session cookies must be Secure + SameSite=None to survive cross-site auth.
