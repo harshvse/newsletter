@@ -1,11 +1,29 @@
+# Local development dependencies only (Postgres + Redis).
+#
+# Production does NOT use this file — the backend runs on Render with managed
+# Neon (Postgres) and Upstash (Redis). See ../DEPLOYMENT.md.
+#
+# Usage:  docker compose up -d   (then `cargo run` with APP_ENVIRONMENT=local)
 services:
-  backend:
-    image: ghcr.io/${GITHUB_REPOSITORY}:latest
-    container_name: rust-backend
-    restart: always
-    ports:
-      - "8000:8000"
-    env_file:
-      - .env
+  postgres:
+    image: postgres:16
+    container_name: wizard-postgres
+    restart: unless-stopped
     environment:
-      APP_ENVIRONMENT: production
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: wizard_blog_backend
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    container_name: wizard-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+volumes:
+  pgdata:

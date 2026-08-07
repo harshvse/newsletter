@@ -1,4 +1,12 @@
 application_host: 127.0.0.1
 base_url: "http://127.0.0.1"
+# Dev-only signing key (must be >= 64 bytes). Production supplies APP_HMAC_SECRET.
+hmac_secret: "local-dev-only-hmac-secret-not-for-production-0000000000000000000000"
+# Local Next.js dev server origins allowed to call the API with credentials.
+frontend_origins:
+  - "http://localhost:3000"
+  - "http://127.0.0.1:3000"
+# Local dev runs over http, so cookies cannot be Secure/SameSite=None.
+cookie_secure: false
 database:
   require_ssl: false

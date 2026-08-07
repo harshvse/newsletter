@@ -1,7 +1,7 @@
 use actix_cors::Cors;
 use actix_session::SessionMiddleware;
 use actix_session::storage::RedisSessionStore;
-use actix_web::cookie::Key;
+use actix_web::cookie::{Key, SameSite};
 use actix_web::dev::Server;
 use actix_web::middleware::from_fn;
 use actix_web::{App, HttpServer, web};
@@ -42,6 +42,8 @@ impl Application {
             configuration.base_url,
             configuration.hmac_secret,
             configuration.redis_uri,
+            configuration.frontend_origins,
+            configuration.cookie_secure,
         )
         .await?;
         Ok(Self { port, server })
@@ -64,6 +66,8 @@ pub async fn run(
     base_url: String,
     hmac_secret: Secret<String>,
     redis_uri: Secret<String>,
+    frontend_origins: Vec<String>,
+    cookie_secure: bool,
 ) -> Result<Server, anyhow::Error> {
     let db_pool = web::Data::new(db_pool);
     let email_client = web::Data::new(email_client);
@@ -77,23 +81,38 @@ pub async fn run(
 
     let message_framework = FlashMessagesFramework::builder(message_store).build();
 
+    // Cross-site cookies from the frontend (different HTTPS origin) require
+    // SameSite=None + Secure. Local http development uses Lax + insecure.
+    let cookie_same_site = if cookie_secure {
+        SameSite::None
+    } else {
+        SameSite::Lax
+    };
+
     let server = HttpServer::new(move || {
-        let cors = Cors::default()
-            .allow_any_origin()
+        // Explicit allow-list of credentialed origins. A wildcard origin is
+        // invalid with credentials, so only configured frontends are allowed.
+        let mut cors = Cors::default()
             .allow_any_method()
             .allow_any_header()
             .supports_credentials()
             .max_age(3600);
+        for origin in &frontend_origins {
+            cors = cors.allowed_origin(origin);
+        }
 
         App::new()
             .wrap(cors)
             .wrap(message_framework.clone())
-            .wrap(SessionMiddleware::new(
-                redis_store.clone(),
-                secret_key.clone(),
-            ))
+            .wrap(
+                SessionMiddleware::builder(redis_store.clone(), secret_key.clone())
+                    .cookie_secure(cookie_secure)
+                    .cookie_same_site(cookie_same_site)
+                    .build(),
+            )
             .wrap(tracing_actix_web::TracingLogger::default())
             .route("/health", web::get().to(health_check))
+            .route("/health/ready", web::get().to(readiness))
             .route("/subscriptions", web::post().to(subscribe))
             .route("/subscriptions/confirm", web::get().to(confirm))
             .route("/login", web::get().to(login_form))

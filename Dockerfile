@@ -1,5 +1,8 @@
 # Builder stage
-FROM rust:latest AS builder
+# Pinned to a specific toolchain for reproducible builds, and to the same
+# Debian release (bookworm) as the runtime stage so the compiled binary's
+# glibc is compatible with the runtime image.
+FROM rust:1.90-bookworm AS builder
 WORKDIR /app
 RUN apt update && apt install lld clang -y
 COPY . .
@@ -20,4 +23,6 @@ RUN apt-get update -y \
 COPY --from=builder /app/target/release/wizard_blog_backend  wizard_blog_backend
 COPY configuration configuration
 ENV APP_ENVIRONMENT=production
+# The app listens on application_port (8000) from configuration/base.yaml.
+EXPOSE 8000
 ENTRYPOINT ["./wizard_blog_backend"]

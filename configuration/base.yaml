@@ -1,6 +1,10 @@
 application_port: 8000
-hmac_secret: "long-and-very-secret-random-key-needed-to-verify-message-integrity"
 redis_uri: "redis://127.0.0.1:6379"
+# hmac_secret is intentionally NOT set here so it is never committed with a
+# real value. It is provided per-environment: local.yaml for development and
+# the APP_HMAC_SECRET env var in production (fail-fast if missing).
+frontend_origins: []
+cookie_secure: false
 database:
   host: "0.0.0.0"
   port: 5432

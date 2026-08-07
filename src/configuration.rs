@@ -16,6 +16,16 @@ pub struct Settings {
     pub email_client: EmailClientSettings,
     pub hmac_secret: Secret<String>,
     pub redis_uri: Secret<String>,
+    /// Exact browser origins allowed to make credentialed cross-site requests
+    /// (the deployed frontend). Wildcard is intentionally unsupported because
+    /// it is invalid together with credentialed CORS.
+    #[serde(default)]
+    pub frontend_origins: Vec<String>,
+    /// When true, session cookies are issued with `Secure` + `SameSite=None`
+    /// so they survive cross-site requests from the frontend over HTTPS.
+    /// Must be false for local http development.
+    #[serde(default)]
+    pub cookie_secure: bool,
 }
 
 #[derive(serde::Deserialize, Clone)]
