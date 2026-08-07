@@ -1,4 +1,4 @@
-use crate::helpers::{assert_is_redirect_to, spawn_app};
+use crate::helpers::spawn_app;
 
 #[tokio::test]
 async fn an_error_flash_message_is_set_on_failure() {
@@ -11,15 +11,12 @@ async fn an_error_flash_message_is_set_on_failure() {
 
     let response = app.post_login(&login_body).await;
 
-    assert_is_redirect_to(&response, "/login");
+    // Should get 401 Unauthorized
+    assert_eq!(response.status().as_u16(), 401);
 
-    // Act
-    let login_page = app.get_login_form().await;
-    assert!(login_page.contains(r#"<p><i>Authentication failed</i></p>"#));
-
-    // Cookie should have expired
-    let login_page = app.get_login_form().await;
-    assert!(!login_page.contains(r#"<p><i>Authentication failed</i></p>"#));
+    let body: serde_json::Value = response.json().await.expect("failed to parse response");
+    assert_eq!(body["success"], false);
+    assert_eq!(body["message"], "Invalid username or password");
 }
 
 #[tokio::test]
@@ -32,9 +29,18 @@ async fn redirect_to_admin_dashboard_after_login_success() {
     });
 
     let response = app.post_login(&login_body).await;
-    assert_is_redirect_to(&response, "/admin/dashboard");
 
-    let html_page = app.get_admin_dashboard_html().await;
-    println!("{}", html_page);
+    // Should get 200 OK with success message
+    assert_eq!(response.status().as_u16(), 200);
+
+    let body: serde_json::Value = response.json().await.expect("failed to parse response");
+    assert_eq!(body["success"], true);
+    assert_eq!(body["message"], "Login successful");
+
+    // Now verify session is valid by accessing admin dashboard
+    let dashboard_response = app.get_admin_dashboard().await;
+    assert_eq!(dashboard_response.status().as_u16(), 200);
+
+    let html_page = dashboard_response.text().await.unwrap();
     assert!(html_page.contains(&format!("Welcome {}!", app.test_user.username)));
 }

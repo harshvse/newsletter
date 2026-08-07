@@ -81,8 +81,8 @@ impl TestApp {
         Body: serde::Serialize,
     {
         self.api_client
-            .post(&format!("{}/login", &self.address))
-            .form(body)
+            .post(&format!("{}/api/auth/login", &self.address))
+            .json(body)
             .send()
             .await
             .expect("failed to execute request")
@@ -169,10 +169,11 @@ impl TestApp {
 
     pub async fn post_logout(&self) -> reqwest::Response {
         self.api_client
-            .post(&format!("{}/admin/logout", &self.address))
+            .post(&format!("{}/api/auth/logout", &self.address))
             .send()
             .await
             .expect("Failed to execute request.")
+    }
     }
 
     // ─── Blog API Helpers ───

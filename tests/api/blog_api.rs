@@ -7,12 +7,7 @@ use serde_json::json;
 async fn get_posts_returns_published_posts_only() {
     let app = spawn_app().await;
 
-    let response = app
-        .api_client
-        .get(&format!("{}/api/posts", &app.address))
-        .send()
-        .await
-        .expect("failed to execute request");
+    let response = app.get_posts().await;
 
     assert_eq!(response.status().as_u16(), 200);
 
@@ -37,12 +32,7 @@ async fn get_posts_returns_published_posts_only() {
 async fn get_posts_with_status_all_returns_all_posts() {
     let app = spawn_app().await;
 
-    let response = app
-        .api_client
-        .get(&format!("{}/api/posts?status=all", &app.address))
-        .send()
-        .await
-        .expect("failed to execute request");
+    let response = app.get_posts_all().await;
 
     assert_eq!(response.status().as_u16(), 200);
 
@@ -66,12 +56,7 @@ async fn get_posts_with_status_all_returns_all_posts() {
 async fn get_posts_response_has_correct_structure() {
     let app = spawn_app().await;
 
-    let response = app
-        .api_client
-        .get(&format!("{}/api/posts", &app.address))
-        .send()
-        .await
-        .expect("failed to execute request");
+    let response = app.get_posts().await;
 
     let posts: Vec<serde_json::Value> = response.json().await.expect("failed to parse response");
 
@@ -95,12 +80,7 @@ async fn get_posts_response_has_correct_structure() {
 async fn get_posts_date_format_is_correct() {
     let app = spawn_app().await;
 
-    let response = app
-        .api_client
-        .get(&format!("{}/api/posts", &app.address))
-        .send()
-        .await
-        .expect("failed to execute request");
+    let response = app.get_posts().await;
 
     let posts: Vec<serde_json::Value> = response.json().await.expect("failed to parse response");
 
@@ -125,12 +105,7 @@ async fn get_posts_date_format_is_correct() {
 async fn get_post_by_id_returns_single_post() {
     let app = spawn_app().await;
 
-    let response = app
-        .api_client
-        .get(&format!("{}/api/posts/1", &app.address))
-        .send()
-        .await
-        .expect("failed to execute request");
+    let response = app.get_post(1).await;
 
     assert_eq!(response.status().as_u16(), 200);
 
@@ -148,12 +123,7 @@ async fn get_post_by_id_returns_single_post() {
 async fn get_post_by_id_nonexistent_returns_404() {
     let app = spawn_app().await;
 
-    let response = app
-        .api_client
-        .get(&format!("{}/api/posts/999", &app.address))
-        .send()
-        .await
-        .expect("failed to execute request");
+    let response = app.get_post(999).await;
 
     assert_eq!(response.status().as_u16(), 404);
 }
@@ -162,12 +132,7 @@ async fn get_post_by_id_nonexistent_returns_404() {
 async fn get_post_returns_categories() {
     let app = spawn_app().await;
 
-    let response = app
-        .api_client
-        .get(&format!("{}/api/posts/2", &app.address))
-        .send()
-        .await
-        .expect("failed to execute request");
+    let response = app.get_post(2).await;
 
     let post: serde_json::Value = response.json().await.expect("failed to parse response");
 
@@ -184,9 +149,7 @@ async fn post_posts_creates_new_post() {
     let app = spawn_app().await;
 
     let response = app
-        .api_client
-        .post(&format!("{}/api/posts", &app.address))
-        .json(&json!({
+        .post_post(&json!({
             "title": "New Blog Post",
             "summary": "This is a summary",
             "content": "# This is content\n\nWith markdown formatting",
@@ -194,9 +157,7 @@ async fn post_posts_creates_new_post() {
             "status": "draft",
             "categories": [1, 2]
         }))
-        .send()
-        .await
-        .expect("failed to execute request");
+        .await;
 
     assert_eq!(response.status().as_u16(), 200);
 
@@ -214,9 +175,7 @@ async fn post_posts_publishes_post_with_published_status() {
     let app = spawn_app().await;
 
     let response = app
-        .api_client
-        .post(&format!("{}/api/posts", &app.address))
-        .json(&json!({
+        .post_post(&json!({
             "title": "Published Post",
             "summary": "Summary",
             "content": "Content",
@@ -224,9 +183,7 @@ async fn post_posts_publishes_post_with_published_status() {
             "status": "published",
             "categories": []
         }))
-        .send()
-        .await
-        .expect("failed to execute request");
+        .await;
 
     assert_eq!(response.status().as_u16(), 200);
 
@@ -242,9 +199,7 @@ async fn post_posts_creates_with_empty_categories() {
     let app = spawn_app().await;
 
     let response = app
-        .api_client
-        .post(&format!("{}/api/posts", &app.address))
-        .json(&json!({
+        .post_post(&json!({
             "title": "Post Without Categories",
             "summary": "Summary",
             "content": "Content",
@@ -252,9 +207,7 @@ async fn post_posts_creates_with_empty_categories() {
             "status": "draft",
             "categories": []
         }))
-        .send()
-        .await
-        .expect("failed to execute request");
+        .await;
 
     assert_eq!(response.status().as_u16(), 200);
 
@@ -270,19 +223,18 @@ async fn put_posts_updates_existing_post() {
     let app = spawn_app().await;
 
     let response = app
-        .api_client
-        .put(&format!("{}/api/posts/1", &app.address))
-        .json(&json!({
-            "title": "Updated Rust Post",
-            "summary": "Updated summary",
-            "content": "# Updated content",
-            "author": "Updated Author",
-            "status": "published",
-            "categories": [2, 5]
-        }))
-        .send()
-        .await
-        .expect("failed to execute request");
+        .put_post(
+            1,
+            &json!({
+                "title": "Updated Rust Post",
+                "summary": "Updated summary",
+                "content": "# Updated content",
+                "author": "Updated Author",
+                "status": "published",
+                "categories": [2, 5]
+            }),
+        )
+        .await;
 
     assert_eq!(response.status().as_u16(), 200);
 
@@ -300,19 +252,18 @@ async fn put_posts_can_change_status_to_published() {
 
     // Post 3 starts as draft, change it to published
     let response = app
-        .api_client
-        .put(&format!("{}/api/posts/3", &app.address))
-        .json(&json!({
-            "title": "Python Best Practices",
-            "summary": "Writing clean and maintainable Python code",
-            "content": "# Python Best Practices",
-            "author": "Harsh Verma",
-            "status": "published",
-            "categories": [5]
-        }))
-        .send()
-        .await
-        .expect("failed to execute request");
+        .put_post(
+            3,
+            &json!({
+                "title": "Python Best Practices",
+                "summary": "Writing clean and maintainable Python code",
+                "content": "# Python Best Practices",
+                "author": "Harsh Verma",
+                "status": "published",
+                "categories": [5]
+            }),
+        )
+        .await;
 
     assert_eq!(response.status().as_u16(), 200);
 
@@ -327,19 +278,18 @@ async fn put_posts_nonexistent_returns_404() {
     let app = spawn_app().await;
 
     let response = app
-        .api_client
-        .put(&format!("{}/api/posts/999", &app.address))
-        .json(&json!({
-            "title": "Title",
-            "summary": "Summary",
-            "content": "Content",
-            "author": "Author",
-            "status": "draft",
-            "categories": []
-        }))
-        .send()
-        .await
-        .expect("failed to execute request");
+        .put_post(
+            999,
+            &json!({
+                "title": "Title",
+                "summary": "Summary",
+                "content": "Content",
+                "author": "Author",
+                "status": "draft",
+                "categories": []
+            }),
+        )
+        .await;
 
     assert_eq!(response.status().as_u16(), 404);
 }
@@ -351,31 +301,16 @@ async fn delete_posts_removes_existing_post() {
     let app = spawn_app().await;
 
     // First verify post exists
-    let get_response = app
-        .api_client
-        .get(&format!("{}/api/posts/1", &app.address))
-        .send()
-        .await
-        .expect("failed to execute request");
+    let get_response = app.get_post(1).await;
     assert_eq!(get_response.status().as_u16(), 200);
 
     // Delete the post
-    let delete_response = app
-        .api_client
-        .delete(&format!("{}/api/posts/1", &app.address))
-        .send()
-        .await
-        .expect("failed to execute request");
+    let delete_response = app.delete_post(1).await;
 
     assert_eq!(delete_response.status().as_u16(), 200);
 
     // Verify post is gone
-    let get_response = app
-        .api_client
-        .get(&format!("{}/api/posts/1", &app.address))
-        .send()
-        .await
-        .expect("failed to execute request");
+    let get_response = app.get_post(1).await;
     assert_eq!(get_response.status().as_u16(), 404);
 }
 
@@ -383,12 +318,7 @@ async fn delete_posts_removes_existing_post() {
 async fn delete_posts_nonexistent_returns_404() {
     let app = spawn_app().await;
 
-    let response = app
-        .api_client
-        .delete(&format!("{}/api/posts/999", &app.address))
-        .send()
-        .await
-        .expect("failed to execute request");
+    let response = app.delete_post(999).await;
 
     assert_eq!(response.status().as_u16(), 404);
 }
@@ -398,30 +328,16 @@ async fn delete_posts_cascades_category_associations() {
     let app = spawn_app().await;
 
     // Get post 2 which has a category
-    let get_response = app
-        .api_client
-        .get(&format!("{}/api/posts/2", &app.address))
-        .send()
-        .await
-        .expect("failed to execute request");
+    let get_response = app.get_post(2).await;
 
     let post: serde_json::Value = get_response.json().await.unwrap();
     assert!(post["categories"].as_array().unwrap().len() > 0);
 
     // Delete the post
-    app.api_client
-        .delete(&format!("{}/api/posts/2", &app.address))
-        .send()
-        .await
-        .expect("failed to execute request");
+    app.delete_post(2).await;
 
     // Verify post is gone and categories still exist
-    let categories_response = app
-        .api_client
-        .get(&format!("{}/api/categories", &app.address))
-        .send()
-        .await
-        .expect("failed to execute request");
+    let categories_response = app.get_categories().await;
 
     assert_eq!(categories_response.status().as_u16(), 200);
     let categories: Vec<serde_json::Value> = categories_response.json().await.unwrap();
@@ -434,12 +350,7 @@ async fn delete_posts_cascades_category_associations() {
 async fn get_categories_returns_all_categories() {
     let app = spawn_app().await;
 
-    let response = app
-        .api_client
-        .get(&format!("{}/api/categories", &app.address))
-        .send()
-        .await
-        .expect("failed to execute request");
+    let response = app.get_categories().await;
 
     assert_eq!(response.status().as_u16(), 200);
 
@@ -454,12 +365,7 @@ async fn get_categories_returns_all_categories() {
 async fn get_categories_response_has_correct_structure() {
     let app = spawn_app().await;
 
-    let response = app
-        .api_client
-        .get(&format!("{}/api/categories", &app.address))
-        .send()
-        .await
-        .expect("failed to parse response");
+    let response = app.get_categories().await;
 
     let categories: Vec<serde_json::Value> =
         response.json().await.expect("failed to parse response");
@@ -474,12 +380,7 @@ async fn get_categories_response_has_correct_structure() {
 async fn get_categories_are_sorted_alphabetically() {
     let app = spawn_app().await;
 
-    let response = app
-        .api_client
-        .get(&format!("{}/api/categories", &app.address))
-        .send()
-        .await
-        .expect("failed to execute request");
+    let response = app.get_categories().await;
 
     let categories: Vec<serde_json::Value> =
         response.json().await.expect("failed to parse response");
@@ -502,14 +403,10 @@ async fn post_categories_creates_new_category() {
     let app = spawn_app().await;
 
     let response = app
-        .api_client
-        .post(&format!("{}/api/categories", &app.address))
-        .json(&json!({
+        .post_category(&json!({
             "name": "JavaScript"
         }))
-        .send()
-        .await
-        .expect("failed to execute request");
+        .await;
 
     assert_eq!(response.status().as_u16(), 200);
 
@@ -525,14 +422,10 @@ async fn post_categories_duplicate_name_fails() {
 
     // Try to create a category with a name that already exists
     let response = app
-        .api_client
-        .post(&format!("{}/api/categories", &app.address))
-        .json(&json!({
+        .post_category(&json!({
             "name": "Rust"  // This already exists from seed data
         }))
-        .send()
-        .await
-        .expect("failed to execute request");
+        .await;
 
     // Should fail because of unique constraint
     assert_ne!(response.status().as_u16(), 200);
@@ -544,23 +437,17 @@ async fn post_categories_can_be_used_in_posts() {
 
     // Create a new category
     let cat_response = app
-        .api_client
-        .post(&format!("{}/api/categories", &app.address))
-        .json(&json!({
+        .post_category(&json!({
             "name": "TypeScript"
         }))
-        .send()
-        .await
-        .expect("failed to execute request");
+        .await;
 
     let category: serde_json::Value = cat_response.json().await.expect("failed to parse response");
     let cat_id = category["id"].as_i64().unwrap() as i32;
 
     // Create a post with this new category
     let post_response = app
-        .api_client
-        .post(&format!("{}/api/posts", &app.address))
-        .json(&json!({
+        .post_post(&json!({
             "title": "TypeScript Post",
             "summary": "Summary",
             "content": "Content",
@@ -568,9 +455,7 @@ async fn post_categories_can_be_used_in_posts() {
             "status": "draft",
             "categories": [cat_id]
         }))
-        .send()
-        .await
-        .expect("failed to execute request");
+        .await;
 
     assert_eq!(post_response.status().as_u16(), 200);
 
@@ -586,35 +471,21 @@ async fn delete_categories_removes_category() {
 
     // Create a new category
     let cat_response = app
-        .api_client
-        .post(&format!("{}/api/categories", &app.address))
-        .json(&json!({
+        .post_category(&json!({
             "name": "Kotlin"
         }))
-        .send()
-        .await
-        .expect("failed to execute request");
+        .await;
 
     let category: serde_json::Value = cat_response.json().await.unwrap();
     let cat_id = category["id"].as_i64().unwrap();
 
     // Delete the category
-    let delete_response = app
-        .api_client
-        .delete(&format!("{}/api/categories/{}", &app.address, cat_id))
-        .send()
-        .await
-        .expect("failed to execute request");
+    let delete_response = app.delete_category(cat_id as i32).await;
 
     assert_eq!(delete_response.status().as_u16(), 200);
 
     // Verify it's gone by checking the total count
-    let categories_response = app
-        .api_client
-        .get(&format!("{}/api/categories", &app.address))
-        .send()
-        .await
-        .expect("failed to execute request");
+    let categories_response = app.get_categories().await;
 
     let categories: Vec<serde_json::Value> = categories_response.json().await.unwrap();
 
@@ -629,12 +500,7 @@ async fn delete_categories_removes_category() {
 async fn delete_categories_nonexistent_returns_404() {
     let app = spawn_app().await;
 
-    let response = app
-        .api_client
-        .delete(&format!("{}/api/categories/999", &app.address))
-        .send()
-        .await
-        .expect("failed to execute request");
+    let response = app.delete_category(999).await;
 
     assert_eq!(response.status().as_u16(), 404);
 }
@@ -647,9 +513,7 @@ async fn integration_create_post_with_categories_and_retrieve() {
 
     // Create a post with multiple categories
     let post_response = app
-        .api_client
-        .post(&format!("{}/api/posts", &app.address))
-        .json(&json!({
+        .post_post(&json!({
             "title": "Full Stack Post",
             "summary": "A post about full stack development",
             "content": "# Full Stack\n\nMultiple technologies",
@@ -657,20 +521,13 @@ async fn integration_create_post_with_categories_and_retrieve() {
             "status": "published",
             "categories": [2, 5, 6]  // Rust, Python, CI/CD
         }))
-        .send()
-        .await
-        .expect("failed to execute request");
+        .await;
 
     let post: serde_json::Value = post_response.json().await.unwrap();
     let post_id = post["id"].as_i64().unwrap();
 
     // Retrieve the post and verify all categories are saved
-    let get_response = app
-        .api_client
-        .get(&format!("{}/api/posts/{}", &app.address, post_id))
-        .send()
-        .await
-        .expect("failed to execute request");
+    let get_response = app.get_post(post_id as i32).await;
 
     let retrieved: serde_json::Value = get_response.json().await.unwrap();
     let categories = retrieved["categories"].as_array().unwrap();
@@ -688,9 +545,7 @@ async fn integration_update_post_categories() {
 
     // Start with one category
     let post_response = app
-        .api_client
-        .post(&format!("{}/api/posts", &app.address))
-        .json(&json!({
+        .post_post(&json!({
             "title": "Test Post",
             "summary": "Summary",
             "content": "Content",
@@ -698,28 +553,25 @@ async fn integration_update_post_categories() {
             "status": "draft",
             "categories": [1]
         }))
-        .send()
-        .await
-        .expect("failed to execute request");
+        .await;
 
     let post: serde_json::Value = post_response.json().await.unwrap();
     let post_id = post["id"].as_i64().unwrap();
 
     // Update with different categories
     let update_response = app
-        .api_client
-        .put(&format!("{}/api/posts/{}", &app.address, post_id))
-        .json(&json!({
-            "title": "Test Post",
-            "summary": "Summary",
-            "content": "Content",
-            "author": "Author",
-            "status": "published",
-            "categories": [2, 3, 4]  // Change categories
-        }))
-        .send()
-        .await
-        .expect("failed to execute request");
+        .put_post(
+            post_id as i32,
+            &json!({
+                "title": "Test Post",
+                "summary": "Summary",
+                "content": "Content",
+                "author": "Author",
+                "status": "published",
+                "categories": [2, 3, 4]  // Change categories
+            }),
+        )
+        .await;
 
     let updated: serde_json::Value = update_response.json().await.unwrap();
     let categories = updated["categories"].as_array().unwrap();
